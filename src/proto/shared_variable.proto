@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+service SharedVariable {
+    /* Topology control */
+
+    rpc Join(JoinReq) returns (JoinReply) {}
+    rpc ChangePrev(ChangePrevMsg) returns (Address) {}
+    rpc ChangeNNext(ChangeNNextMsg) returns (Ack) {}
+    rpc NodeMissing(NodeMissingMsg) returns (Ack) {}
+
+    /* Leader election */
+
+    rpc Election(ElectionMsg) returns (Ack) {}
+    rpc Elected(ElectedMsg) returns (Ack) {}
+
+    /* Shared variable */
+
+    /* asks leader for the variable and timestamp */
+    rpc ReadVar(ReadVarReq) returns (ReadVarReply) {}
+    /* send new variable to leader and ask for timestamp */
+    rpc WriteVar(WriteVarReq) returns (WriteVarReply) {}
+}
+
+message Ack {
+    bool ack = 1;
+}
+
+message Address {
+    string hostname = 1;
+    int32 port = 2;
+}
+
+message JoinReq {
+    Address address = 1;
+}
+
+message JoinReply {
+    Address next = 1;
+    Address prev = 2;
+    Address nnext = 3;
+    Address leader = 4;
+}
+
+/* initialization: send to (old) next node with new node address */
+/* node failure: send to nnext with my address */
+message ChangePrevMsg {
+    Address prev = 1;
+}
+
+/* initialization: send to prev node with new node address */
+/* node failure: send to prev with new next node address */
+message ChangeNNextMsg {
+    Address nnext = 1;
+}
+
+/* detected node failure */
+/* send to prev with my address when leaving */
+message NodeMissingMsg {
+    Address address = 1;
+}
+
+message ElectionMsg {
+    string timestamp = 1;
+}
+
+message ElectedMsg {
+    Address leader = 1;
+}
+
+message ReadVarReq {
+}
+
+message ReadVarReply {
+    string variable = 1;
+    string timestamp = 2;
+}
+
+message WriteVarReq {
+    string variable = 1;
+}
+
+message WriteVarReply {
+    string timestamp = 1;
+}

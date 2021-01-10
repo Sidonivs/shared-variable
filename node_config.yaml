@@ -1,0 +1,26 @@
+---
+node1:
+  ip: "127.0.0.1"
+  port: 2010
+  other_ip: "127.0.0.1"
+  other_port: 2010
+node2:
+  ip: "127.0.0.1"
+  port: 2020
+  other_ip: "127.0.0.1"
+  other_port: 2010
+node3:
+  ip: "127.0.0.1"
+  port: 2030
+  other_ip: "127.0.0.1"
+  other_port: 2020
+node4:
+  ip: "127.0.0.1"
+  port: 2040
+  other_ip: "127.0.0.1"
+  other_port: 2030
+node5:
+  ip: "127.0.0.1"
+  port: 2050
+  other_ip: "127.0.0.1"
+  other_port: 2040
