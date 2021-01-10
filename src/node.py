@@ -123,6 +123,7 @@ class Node:
                     self.repair_topology(self.leader)
                     return "LE"
                     # TODO LE
+
                 except grpc.RpcError as e:
                     logging.error(msg="Repairing topology unsuccessful.", exc_info=e)
                     raise e
@@ -149,6 +150,7 @@ class Node:
                     self.repair_topology(self.leader)
                     return
                     # TODO LE
+
                 except grpc.RpcError as e:
                     logging.error(msg="Repairing topology unsuccessful.", exc_info=e)
                     raise e
@@ -156,7 +158,7 @@ class Node:
     def leave(self):
         while self.repairing:
             print("Waiting for another repair...")
-            time.sleep(5)
+            time.sleep(random.randint(3, 6))
 
         self.repairing = True
 
@@ -168,23 +170,26 @@ class Node:
 
         self.repairing = False
 
-    def stop(self, status):
+    def stop(self, status, last_message=f"Node stopped."):
         print("Stopping server...")
         self.server.stop(3)
-        print(f"{self} stopped.")
+        print(last_message)
         sys.exit(status)
+
+    def kill(self):
+        self.stop(1)
 
 
 def parse_args():
     if len(sys.argv) == 2:
         return sys.argv[1]
     else:
-        logging.error(f"Program expects 1 argument (node id in node_config.yaml),\n{len(sys.argv)} arguments given.")
+        logging.error(f"Program expects 1 argument (node id in node_config.yaml),"
+                      f"\n{len(sys.argv) - 1} arguments given.")
         sys.exit(2)
 
 
 def get_yaml_config(config_node_id):
-    # dictionary = {}
     with open("../node_config.yaml", 'r') as stream:
         try:
             dictionary = yaml.safe_load(stream)
