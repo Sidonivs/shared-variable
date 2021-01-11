@@ -57,7 +57,12 @@ class Node:
         print(f"Status: {self} \nwith {self.neighbours_to_string()}")
 
     def generate_timestamp(self):
-        return time.time()
+        timestamp = time.time()
+        # makes sure timestamp is truly unique
+        while timestamp == self.timestamp:
+            time.sleep(0.1)
+            timestamp = time.time()
+        return timestamp
 
     def run(self):
         self.timestamp = self.generate_timestamp()
@@ -97,7 +102,7 @@ class Node:
                 raise grpc.RpcError("Waiting for another repair timed out.")
 
             print("Waiting for another repair...")
-            time.sleep(random.randint(3, 6))
+            time.sleep(random.randint(2, 5))
             counter += 1
 
         self.repairing = True
@@ -106,9 +111,16 @@ class Node:
         my_servicer.NodeMissing(sv.NodeMissingMsg(address=missing_address))
 
         self.repairing = False
+        print(f"Topology repaired. {self.neighbours_to_string()}")
 
+    """ Can raise grpc.RpcError
+    """
     def leader_election(self):
-        self.hub.get_stub_by_address(self.address).Election(sv.ElectionMsg(timestamp=-1))
+        try:
+            self.hub.get_stub_by_address(self.address).Election(sv.ElectionMsg(timestamp=-1))
+        except grpc.RpcError as e:
+            logging.critical(msg="Leader election unsuccessful.", exc_info=e)
+            raise e
 
     def read_shared_variable(self):
         if self.leader == self.address:
@@ -116,7 +128,11 @@ class Node:
             return self.hub.get_stub_by_address(self.address).ReadVar(sv.ReadVarReq()).variable
 
         read_successful = False
+        counter = 0
         while not read_successful:
+            if counter >= 10:
+                raise grpc.RpcError("Reading shared variable timed out.")
+
             try:
                 leader = self.hub.get_leader()
                 read_var_reply = leader.ReadVar(sv.ReadVarReq())
@@ -127,14 +143,20 @@ class Node:
                 return self.variable
 
             except grpc.RpcError as e:
-                logging.warning(msg="Leader could not be reached.")
-                try:
-                    self.repair_topology(self.leader)
-                except grpc.RpcError as e:
-                    logging.error(msg="Repairing topology unsuccessful.", exc_info=e)
-                    raise e
+                if e.code() == grpc.StatusCode.FAILED_PRECONDITION:
+                    logging.critical(e.details())
+                    self.leader_election()
+                else:
+                    # print(e.code())
+                    logging.warning(msg="Leader could not be reached.")
+                    try:
+                        self.repair_topology(self.leader)
+                    except grpc.RpcError as e2:
+                        logging.critical(msg="Repairing topology unsuccessful.", exc_info=e2)
+                        raise e2
 
-                self.leader_election()
+                    self.leader_election()
+            counter += 1
 
     def write_to_shared_variable(self, value):
         if self.leader == self.address:
@@ -143,7 +165,11 @@ class Node:
             return
 
         write_successful = False
+        counter = 0
         while not write_successful:
+            if counter >= 10:
+                raise grpc.RpcError("Writing to shared variable timed out.")
+
             try:
                 leader = self.hub.get_leader()
                 write_var_reply = leader.WriteVar(sv.WriteVarReq(variable=value))
@@ -153,23 +179,34 @@ class Node:
                 self.timestamp = write_var_reply.timestamp
 
             except grpc.RpcError as e:
-                logging.warning(msg="Leader could not be reached.", exc_info=e)
-                try:
-                    self.repair_topology(self.leader)
-                except grpc.RpcError as e:
-                    logging.error(msg="Repairing topology unsuccessful.", exc_info=e)
-                    raise e
+                if e.code() == grpc.StatusCode.FAILED_PRECONDITION:
+                    logging.critical(e.details())
+                    self.leader_election()
+                else:
+                    logging.warning(msg="Leader could not be reached.", exc_info=e)
+                    try:
+                        self.repair_topology(self.leader)
+                    except grpc.RpcError as e:
+                        logging.critical(msg="Repairing topology unsuccessful.", exc_info=e)
+                        raise e
 
-                self.leader_election()
+                    self.leader_election()
+            counter += 1
 
     def leave(self):
+        if self.address == self.prev:
+            # I am the only node
+            return
+
+        # TODO write my value to prev
+
         counter = 0
         while self.repairing:
             if counter >= 100:
                 raise grpc.RpcError("Waiting for another repair timed out.")
 
             print("Waiting for another repair...")
-            time.sleep(random.randint(3, 6))
+            time.sleep(random.randint(2, 5))
             counter += 1
 
         self.repairing = True
@@ -182,14 +219,17 @@ class Node:
 
         self.repairing = False
 
+        if self.address == self.leader:
+            self.leader_election()
+
     def stop(self, status, last_message=f"Node stopped."):
         print("Stopping server...")
-        self.server.stop(3)
+        self.server.stop(4)
         print(last_message)
         sys.exit(status)
 
     def kill(self):
-        self.stop(1)
+        self.stop(status=1)
 
 
 def parse_args():

@@ -1,3 +1,6 @@
+import logging
+import grpc
+
 from src import shared_variable_pb2_grpc as sv_grpc
 from src import shared_variable_pb2 as sv
 
@@ -73,15 +76,33 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         return sv.Ack(ack=True)
 
     def Election(self, request, context):
-        pass
+        print(f"Election called with timestamp [{request.timestamp}]")
+
+        if self.node.timestamp < request.timestamp:
+            self.node.voting = True
+            self.node.hub.get_next().Election(sv.ElectionMsg(timestamp=request.timestamp))
+        elif self.node.timestamp > request.timestamp and not self.node.voting:
+            self.node.voting = True
+            self.node.hub.get_next().Election(sv.ElectionMsg(timestamp=self.node.timestamp))
+        elif self.node.timestamp == request.timestamp:
+            # I am leader
+            self.node.hub.get_next().Elected(sv.ElectedMsg(leader=self.node.address, timestamp=self.node.timestamp))
+
+        return sv.Ack(ack=True)
 
     def Elected(self, request, context):
-        pass
+        print(f"Elected called with leader [{util.address_to_string(request.leader)}] and timestamp [{request.timestamp}]")
+        self.node.leader = request.leader
+        if self.node.timestamp != request.timestamp:
+            self.node.hub.get_next().Elected(sv.ElectedMsg(leader=request.leader, timestamp=request.timestamp))
+
+        self.node.voting = False
+        return sv.Ack(ack=True)
 
     def ReadVar(self, request, context):
         if self.node.address != self.node.leader:
-            # TODO fail
-            pass
+            logging.critical("Trying to read from a node that is not the leader!")
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Trying to read from a node that is not the leader!")
 
         timestamp = self.node.generate_timestamp()
         self.node.timestamp = timestamp
@@ -94,8 +115,8 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
 
     def WriteVar(self, request, context):
         if self.node.address != self.node.leader:
-            # TODO fail
-            pass
+            logging.critical("Trying to write to a node that is not the leader!")
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Trying to write to a node that is not the leader!")
 
         timestamp = self.node.generate_timestamp()
         self.node.timestamp = timestamp

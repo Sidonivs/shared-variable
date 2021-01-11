@@ -21,6 +21,7 @@ service SharedVariable {
     rpc WriteVar(WriteVarReq) returns (WriteVarReply) {}
 }
 
+/* Dummy message because GRPC services MUST return a message */
 message Ack {
     bool ack = 1;
 }

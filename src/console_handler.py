@@ -33,9 +33,10 @@ class ConsoleHandler(threading.Thread):
             except grpc.RpcError as e:
                 exit_code = 1
                 print(e)
+                print("Unsolvable issues encountered, leaving anyway.")
             finally:
                 self.node.stop(exit_code, f"{self.node.id.capitalize()} took Death's arm and followed him through the "
-                                          f"doors \n "
+                                          f"doors \n"
                                           f"and onto the black desert \n"
                                           f"under the endless night. \n"
                                           f"- T. Pratchett")
@@ -49,7 +50,7 @@ class ConsoleHandler(threading.Thread):
                 else:
                     print(f"[{self.node.timestamp}] Shared variable value: '{value}'")
             except grpc.RpcError:
-                print("Unable to retrieve the variable due to an unexpected error. You may try again later.")
+                print("Unable to retrieve the variable due to an unexpected error or timeout. You may try again later.")
 
         elif cmd == "w":
             value = input("Value: ")
@@ -57,7 +58,7 @@ class ConsoleHandler(threading.Thread):
                 self.node.write_to_shared_variable(value)
                 print(f"[{self.node.timestamp}] Write successful.")
             except grpc.RpcError:
-                print("Unable to write to the variable due to an unexpected error. You may try again later.")
+                print("Unable to write to the variable due to an unexpected error or timeout. You may try again later.")
 
         else:
             print("Unrecognized command.")

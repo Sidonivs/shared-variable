@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x15shared_variable.proto\"\x12\n\x03\x41\x63k\x12\x0b\n\x03\x61\x63k\x18\x01 \x01(\x08\")\n\x07\x41\x64\x64ress\x12\x10\n\x08hostname\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\"$\n\x07JoinReq\x12\x19\n\x07\x61\x64\x64ress\x18\x01 \x01(\x0b\x32\x08.Address\"n\n\tJoinReply\x12\x16\n\x04next\x18\x01 \x01(\x0b\x32\x08.Address\x12\x16\n\x04prev\x18\x02 \x01(\x0b\x32\x08.Address\x12\x17\n\x05nnext\x18\x03 \x01(\x0b\x32\x08.Address\x12\x18\n\x06leader\x18\x04 \x01(\x0b\x32\x08.Address\"\'\n\rChangePrevMsg\x12\x16\n\x04prev\x18\x01 \x01(\x0b\x32\x08.Address\")\n\x0e\x43hangeNNextMsg\x12\x17\n\x05nnext\x18\x01 \x01(\x0b\x32\x08.Address\"+\n\x0eNodeMissingMsg\x12\x19\n\x07\x61\x64\x64ress\x18\x01 \x01(\x0b\x32\x08.Address\" \n\x0b\x45lectionMsg\x12\x11\n\ttimestamp\x18\x01 \x01(\t\"&\n\nElectedMsg\x12\x18\n\x06leader\x18\x01 \x01(\x0b\x32\x08.Address\"\x0c\n\nReadVarReq\"3\n\x0cReadVarReply\x12\x10\n\x08variable\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\t\"\x1f\n\x0bWriteVarReq\x12\x10\n\x08variable\x18\x01 \x01(\t\"\"\n\rWriteVarReply\x12\x11\n\ttimestamp\x18\x01 \x01(\t2\xc1\x02\n\x0eSharedVariable\x12\x1e\n\x04Join\x12\x08.JoinReq\x1a\n.JoinReply\"\x00\x12(\n\nChangePrev\x12\x0e.ChangePrevMsg\x1a\x08.Address\"\x00\x12&\n\x0b\x43hangeNNext\x12\x0f.ChangeNNextMsg\x1a\x04.Ack\"\x00\x12&\n\x0bNodeMissing\x12\x0f.NodeMissingMsg\x1a\x04.Ack\"\x00\x12 \n\x08\x45lection\x12\x0c.ElectionMsg\x1a\x04.Ack\"\x00\x12\x1e\n\x07\x45lected\x12\x0b.ElectedMsg\x1a\x04.Ack\"\x00\x12\'\n\x07ReadVar\x12\x0b.ReadVarReq\x1a\r.ReadVarReply\"\x00\x12*\n\x08WriteVar\x12\x0c.WriteVarReq\x1a\x0e.WriteVarReply\"\x00\x62\x06proto3'
+  serialized_pb=b'\n\x15shared_variable.proto\"\x12\n\x03\x41\x63k\x12\x0b\n\x03\x61\x63k\x18\x01 \x01(\x08\")\n\x07\x41\x64\x64ress\x12\x10\n\x08hostname\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\"$\n\x07JoinReq\x12\x19\n\x07\x61\x64\x64ress\x18\x01 \x01(\x0b\x32\x08.Address\"n\n\tJoinReply\x12\x16\n\x04next\x18\x01 \x01(\x0b\x32\x08.Address\x12\x16\n\x04prev\x18\x02 \x01(\x0b\x32\x08.Address\x12\x17\n\x05nnext\x18\x03 \x01(\x0b\x32\x08.Address\x12\x18\n\x06leader\x18\x04 \x01(\x0b\x32\x08.Address\"\'\n\rChangePrevMsg\x12\x16\n\x04prev\x18\x01 \x01(\x0b\x32\x08.Address\")\n\x0e\x43hangeNNextMsg\x12\x17\n\x05nnext\x18\x01 \x01(\x0b\x32\x08.Address\"+\n\x0eNodeMissingMsg\x12\x19\n\x07\x61\x64\x64ress\x18\x01 \x01(\x0b\x32\x08.Address\" \n\x0b\x45lectionMsg\x12\x11\n\ttimestamp\x18\x01 \x01(\x01\"9\n\nElectedMsg\x12\x18\n\x06leader\x18\x01 \x01(\x0b\x32\x08.Address\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\"\x0c\n\nReadVarReq\"3\n\x0cReadVarReply\x12\x10\n\x08variable\x18\x01 \x01(\t\x12\x11\n\ttimestamp\x18\x02 \x01(\x01\"\x1f\n\x0bWriteVarReq\x12\x10\n\x08variable\x18\x01 \x01(\t\"\"\n\rWriteVarReply\x12\x11\n\ttimestamp\x18\x01 \x01(\x01\x32\xc1\x02\n\x0eSharedVariable\x12\x1e\n\x04Join\x12\x08.JoinReq\x1a\n.JoinReply\"\x00\x12(\n\nChangePrev\x12\x0e.ChangePrevMsg\x1a\x08.Address\"\x00\x12&\n\x0b\x43hangeNNext\x12\x0f.ChangeNNextMsg\x1a\x04.Ack\"\x00\x12&\n\x0bNodeMissing\x12\x0f.NodeMissingMsg\x1a\x04.Ack\"\x00\x12 \n\x08\x45lection\x12\x0c.ElectionMsg\x1a\x04.Ack\"\x00\x12\x1e\n\x07\x45lected\x12\x0b.ElectedMsg\x1a\x04.Ack\"\x00\x12\'\n\x07ReadVar\x12\x0b.ReadVarReq\x1a\r.ReadVarReply\"\x00\x12*\n\x08WriteVar\x12\x0c.WriteVarReq\x1a\x0e.WriteVarReply\"\x00\x62\x06proto3'
 )
 
 
@@ -287,8 +287,8 @@ _ELECTIONMSG = _descriptor.Descriptor(
   fields=[
     _descriptor.FieldDescriptor(
       name='timestamp', full_name='ElectionMsg.timestamp', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
+      number=1, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
@@ -324,6 +324,13 @@ _ELECTEDMSG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='timestamp', full_name='ElectedMsg.timestamp', index=1,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -337,7 +344,7 @@ _ELECTEDMSG = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=401,
-  serialized_end=439,
+  serialized_end=458,
 )
 
 
@@ -361,8 +368,8 @@ _READVARREQ = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=441,
-  serialized_end=453,
+  serialized_start=460,
+  serialized_end=472,
 )
 
 
@@ -383,8 +390,8 @@ _READVARREPLY = _descriptor.Descriptor(
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
       name='timestamp', full_name='ReadVarReply.timestamp', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
@@ -400,8 +407,8 @@ _READVARREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=455,
-  serialized_end=506,
+  serialized_start=474,
+  serialized_end=525,
 )
 
 
@@ -432,8 +439,8 @@ _WRITEVARREQ = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=508,
-  serialized_end=539,
+  serialized_start=527,
+  serialized_end=558,
 )
 
 
@@ -447,8 +454,8 @@ _WRITEVARREPLY = _descriptor.Descriptor(
   fields=[
     _descriptor.FieldDescriptor(
       name='timestamp', full_name='WriteVarReply.timestamp', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
+      number=1, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
@@ -464,8 +471,8 @@ _WRITEVARREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=541,
-  serialized_end=575,
+  serialized_start=560,
+  serialized_end=594,
 )
 
 _JOINREQ.fields_by_name['address'].message_type = _ADDRESS
@@ -592,8 +599,8 @@ _SHAREDVARIABLE = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=578,
-  serialized_end=899,
+  serialized_start=597,
+  serialized_end=918,
   methods=[
   _descriptor.MethodDescriptor(
     name='Join',
