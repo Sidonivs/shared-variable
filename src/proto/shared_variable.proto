@@ -7,6 +7,8 @@ service SharedVariable {
     rpc ChangePrev(ChangePrevMsg) returns (Address) {}
     rpc ChangeNNext(ChangeNNextMsg) returns (Ack) {}
     rpc NodeMissing(NodeMissingMsg) returns (Ack) {}
+    /* signal that the topology repair has been completed */
+    rpc TopologyRepairComplete(TopologyRepairCompleteMsg) returns (Ack) {}
 
     /* Leader election */
 
@@ -58,6 +60,9 @@ message ChangeNNextMsg {
 /* send to prev with my address when leaving */
 message NodeMissingMsg {
     Address address = 1;
+}
+
+message TopologyRepairCompleteMsg {
 }
 
 message ElectionMsg {

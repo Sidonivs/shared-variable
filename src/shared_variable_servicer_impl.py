@@ -59,6 +59,16 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         print(f"NodeMissing called with {util.address_to_string(request.address)}.")
         self.node.repairing = True
 
+        if self.node.node_missing_author:
+            # probability of this happening is minimal, nevertheless, it is good to have this situation covered
+            # otherwise infinitely rotating NodeMissing messages could freeze the entire cluster
+            logging.warning("Missing node could not be found, it might have already been removed. "
+                            "This can indicate an unsuccessful leader election. "
+                            "The NodeMissing message will be thrown away.")
+            self.node.repairing = False
+            self.node.node_missing_author = False
+            return sv.Ack(ack=True)
+
         if request.address == self.node.next:
             self.node.next = self.node.nnext
             # send ChangePrev to nnext node with my address
@@ -67,6 +77,7 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
             # send ChangeNNext to prev node with my new next
             self.node.hub.get_prev().ChangeNNext(sv.ChangeNNextMsg(nnext=self.node.next))
             print("NodeMissing completed.")
+            # TODO send signal that repair is completed
 
         else:
             # send to next node to solve
@@ -80,23 +91,59 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
 
         if self.node.timestamp < request.timestamp:
             self.node.voting = True
-            self.node.hub.get_next().Election(sv.ElectionMsg(timestamp=request.timestamp))
+
+            election_send_success = False
+            while not election_send_success:
+                try:
+                    self.node.hub.get_next().Election(sv.ElectionMsg(timestamp=request.timestamp))
+                    election_send_success = True
+                except grpc.RpcError as e:
+                    logging.warning("Next node for the Election message could not be reached.")
+                    self.node.repair_topology(self.node.next)
+
         elif self.node.timestamp > request.timestamp and not self.node.voting:
             self.node.voting = True
-            self.node.hub.get_next().Election(sv.ElectionMsg(timestamp=self.node.timestamp))
+
+            election_send_success = False
+            while not election_send_success:
+                try:
+                    self.node.hub.get_next().Election(sv.ElectionMsg(timestamp=self.node.timestamp))
+                    election_send_success = True
+                except grpc.RpcError as e:
+                    logging.warning("Next node for the Election message could not be reached.")
+                    self.node.repair_topology(self.node.next)
+
         elif self.node.timestamp == request.timestamp:
-            # I am leader
-            self.node.hub.get_next().Elected(sv.ElectedMsg(leader=self.node.address, timestamp=self.node.timestamp))
+            # I am leader, sending elected message
+            elected_send_success = False
+            while not elected_send_success:
+                try:
+                    self.node.hub.get_next().Elected(sv.ElectedMsg(leader=self.node.address, timestamp=self.node.timestamp))
+                    elected_send_success = True
+                except grpc.RpcError as e:
+                    logging.warning("Next node for the Elected message could not be reached.")
+                    self.node.repair_topology(self.node.next)
 
         return sv.Ack(ack=True)
 
     def Elected(self, request, context):
         print(f"Elected called with leader [{util.address_to_string(request.leader)}] and timestamp [{request.timestamp}]")
         self.node.leader = request.leader
-        if self.node.timestamp != request.timestamp:
-            self.node.hub.get_next().Elected(sv.ElectedMsg(leader=request.leader, timestamp=request.timestamp))
-
         self.node.voting = False
+
+        if self.node.address != request.leader:
+            elected_send_success = False
+            while not elected_send_success:
+                try:
+                    self.node.hub.get_next().Elected(sv.ElectedMsg(leader=request.leader, timestamp=request.timestamp))
+                    elected_send_success = True
+                except grpc.RpcError as e:
+                    logging.warning("Next node for the Elected message could not be reached.")
+                    self.node.repair_topology(self.node.next)
+        else:
+            # the new leader makes a backup of the variable in the next node
+            self.node.backup_variable()
+
         return sv.Ack(ack=True)
 
     def ReadVar(self, request, context):
@@ -114,14 +161,15 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         return reply
 
     def WriteVar(self, request, context):
-        if self.node.address != self.node.leader:
-            logging.critical("Trying to write to a node that is not the leader!")
-            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Trying to write to a node that is not the leader!")
-
         timestamp = self.node.generate_timestamp()
         self.node.timestamp = timestamp
         print(f"[{timestamp}] Writing to variable.")
         print(f"Old value: '{self.node.variable}'; New value: '{request.variable}'")
 
         self.node.variable = request.variable
+
+        if self.node.address == self.node.leader:
+            # make a backup of the new value in the next node
+            self.node.backup_variable()
+
         return sv.WriteVarReply(timestamp=timestamp)
