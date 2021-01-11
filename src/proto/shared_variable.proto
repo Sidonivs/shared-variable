@@ -60,11 +60,12 @@ message NodeMissingMsg {
 }
 
 message ElectionMsg {
-    string timestamp = 1;
+    double timestamp = 1;
 }
 
 message ElectedMsg {
     Address leader = 1;
+    double timestamp = 2;
 }
 
 message ReadVarReq {
@@ -72,7 +73,7 @@ message ReadVarReq {
 
 message ReadVarReply {
     string variable = 1;
-    string timestamp = 2;
+    double timestamp = 2;
 }
 
 message WriteVarReq {
@@ -80,5 +81,5 @@ message WriteVarReq {
 }
 
 message WriteVarReply {
-    string timestamp = 1;
+    double timestamp = 1;
 }
