@@ -16,12 +16,16 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         print("Join called.")
         reply = sv.JoinReply()
 
+        self.node.wait_for_repair()
+        self.node.repairing = True
+
         if request.address == self.node.address:
             print("I am FIRST.")
             reply.next.CopyFrom(self.node.next)
             reply.prev.CopyFrom(self.node.prev)
             reply.nnext.CopyFrom(self.node.nnext)
             reply.leader.CopyFrom(self.node.leader)
+
         else:
             print(f"{util.address_to_string(request.address)} is joining.")
 
@@ -43,6 +47,7 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
             self.node.nnext = initial_next
             self.node.next = request.address
 
+        self.node.repairing = False
         return reply
 
     def ChangePrev(self, request, context):

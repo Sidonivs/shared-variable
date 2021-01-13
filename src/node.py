@@ -93,6 +93,14 @@ class Node:
         else:
             print(f"Join successful. \n{self.neighbours_to_string()}")
 
+        # first read
+        try:
+            self.read_shared_variable()
+        except grpc.RpcError as e:
+            logging.error(msg="First read unsuccessful.", exc_info=e)
+            self.leave()
+            self.stop(1)
+
         self.cmd_handler = ConsoleHandler(self)
         self.cmd_handler.start()
 
@@ -106,7 +114,7 @@ class Node:
                 raise TimeoutError("Waiting for another repair timed out.")
 
             print("Waiting for another repair...")
-            time.sleep(random.randint(2, 4))
+            time.sleep(random.uniform(0, 1))
             counter += 1
 
     """ Can raise TimeoutError or grpc.RpcError
