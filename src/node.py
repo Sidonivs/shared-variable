@@ -39,7 +39,6 @@ class Node:
         self.repairing = False
         self.voting = False
 
-        self.node_missing_done = False
         self.check_nodes_author = False
 
         self.server = None
@@ -97,11 +96,13 @@ class Node:
         self.cmd_handler = ConsoleHandler(self)
         self.cmd_handler.start()
 
+    """ Can raise TimeoutError
+    """
     def wait_for_repair(self):
         counter = 0
         while self.repairing:
             if counter >= 10:
-                logging.critical(msg="Timeout: Repairing topology unsuccessful.")
+                logging.critical(msg="Timeout: Topology repair unsuccessful.")
                 raise TimeoutError("Waiting for another repair timed out.")
 
             print("Waiting for another repair...")
@@ -119,8 +120,9 @@ class Node:
             my_servicer = self.hub.get_stub_by_address(self.address)
             my_servicer.NodeMissing(sv.NodeMissingMsg(address=missing_address))
         except grpc.RpcError as e:
-            logging.critical(msg="Repairing topology unsuccessful. (Another node disconnected.)", exc_info=e)
+            logging.critical(msg="Topology repair unsuccessful. (Another node disconnected.)", exc_info=e)
 
+        self.repairing = False
         print(f"Topology repaired. {self.neighbours_to_string()}")
 
         if missing_address == self.leader:
@@ -168,8 +170,7 @@ class Node:
                     # this node's leader does not think he is leader, attempt to fix this by electing a new one
                     self.leader_election()
                 else:
-                    # print(e.code()) TODO try if it works
-                    logging.warning(msg="Leader could not be reached.")
+                    logging.warning(msg=f"Leader could not be reached: {e.code()}.")
 
                     self.repair_topology(self.leader)
 
@@ -197,7 +198,7 @@ class Node:
                     self.backup_variable()
 
             except grpc.RpcError as e:
-                logging.warning(msg="Leader could not be reached.", exc_info=e)
+                logging.warning(msg=f"Leader could not be reached: {e.code()}.")
 
                 self.repair_topology(self.leader)
 
@@ -214,7 +215,7 @@ class Node:
                 self.hub.get_next().WriteVar(sv.WriteVarReq(variable=self.variable))
                 backup_send_success = True
             except grpc.RpcError as e:
-                logging.warning("Next node for backup could not be reached.")
+                logging.warning(f"Next node for backup could not be reached: {e.code()}.")
                 self.repair_topology(self.next)
 
     def leave(self):
@@ -232,6 +233,8 @@ class Node:
         except grpc.RpcError as e:
             logging.error(msg="Failed to send leaving message.", exc_info=e)
             raise e
+
+        self.repairing = False
 
         if self.address == self.leader:
             try:

@@ -1,6 +1,5 @@
 import threading
 import grpc
-import time
 
 
 class ConsoleHandler(threading.Thread):
@@ -32,11 +31,10 @@ class ConsoleHandler(threading.Thread):
             print("Checking topology...")
             try:
                 self.node.check_topology()
+                print("Topology checked and repaired.")
             except grpc.RpcError as e:
                 print("Unable to start checking topology due to an unexpected error. You may try again later or "
                       "restart.")
-            # to prevent checking again too fast
-            time.sleep(3)
 
         elif cmd == "q":
             try:
