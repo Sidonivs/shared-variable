@@ -59,13 +59,15 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         print(f"NodeMissing called with {util.address_to_string(request.address)}.")
         self.node.repairing = True
 
-        if self.node.node_missing_author:
+        if self.node.node_missing_done:
             # probability of this happening is minimal, nevertheless, it is good to have this situation covered
             # otherwise infinitely rotating NodeMissing messages could freeze the entire cluster
             logging.warning("Missing node could not be found, it might have already been removed. "
                             "This can indicate an unsuccessful leader election. "
                             "The NodeMissing message will be thrown away and a new leader eventually elected.")
-            self.node.node_missing_author = False
+
+            self.node.hub.get_next().TopologyRepairComplete(sv.TopologyRepairCompleteMsg(author=self.node.address))
+
             return sv.Ack(ack=True)
 
         if request.address == self.node.next:
@@ -87,14 +89,37 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
             # send to next node to solve
             self.node.hub.get_next().NodeMissing(sv.NodeMissingMsg(address=request.address))
 
+        self.node.node_missing_done = True
         return sv.Ack(ack=True)
 
     def TopologyRepairComplete(self, request, context):
         print(f"TopologyRepairComplete called with author [{util.address_to_string(request.author)}].")
         self.node.repairing = False
+        self.node.node_missing_done = False
 
         if self.node.address != request.author:
             self.node.hub.get_next().TopologyRepairComplete(sv.TopologyRepairCompleteMsg(author=request.author))
+
+        return sv.Ack(ack=True)
+
+    def CheckNodes(self, request, context):
+        print("CheckNodes called...")
+
+        if self.node.check_nodes_author and request.stop:
+            self.node.check_nodes_author = False
+            print("CheckNodes completed.")
+            return sv.Ack(ack=True)
+
+        self.node.wait_for_repair()
+
+        check_nodes_success = False
+        while not check_nodes_success:
+            try:
+                self.node.hub.get_next().CheckNodes(sv.CheckNodesMsg(stop=True))
+                check_nodes_success = True
+            except grpc.RpcError as e:
+                logging.warning("Next node for CheckNodes message could not be reached.")
+                self.node.repair_topology(self.node.next)
 
         return sv.Ack(ack=True)
 
@@ -142,6 +167,8 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
 
     def Elected(self, request, context):
         print(f"Elected called with leader [{util.address_to_string(request.leader)}] and timestamp [{request.timestamp}]")
+        self.node.wait_for_repair()
+
         self.node.leader = request.leader
         self.node.voting = False
 

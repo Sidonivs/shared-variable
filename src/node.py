@@ -39,7 +39,8 @@ class Node:
         self.repairing = False
         self.voting = False
 
-        self.node_missing_author = False
+        self.node_missing_done = False
+        self.check_nodes_author = False
 
         self.server = None
         self.hub = None
@@ -113,12 +114,10 @@ class Node:
         self.wait_for_repair()
 
         self.repairing = True
-        self.node_missing_author = False
 
         try:
             my_servicer = self.hub.get_stub_by_address(self.address)
             my_servicer.NodeMissing(sv.NodeMissingMsg(address=missing_address))
-            self.node_missing_author = True
         except grpc.RpcError as e:
             logging.critical(msg="Repairing topology unsuccessful. (Another node disconnected.)", exc_info=e)
 
@@ -130,12 +129,19 @@ class Node:
     """ Can raise grpc.RpcError
     """
     def leader_election(self):
-        self.wait_for_repair()
-
         try:
             self.hub.get_stub_by_address(self.address).Election(sv.ElectionMsg(timestamp=-1))
         except grpc.RpcError as e:
             logging.critical(msg="Leader election unsuccessful.", exc_info=e)
+            raise e
+
+    def check_topology(self):
+        self.check_nodes_author = True
+
+        try:
+            self.hub.get_stub_by_address(self.address).CheckNodes(sv.CheckNodesMsg(stop=False))
+        except grpc.RpcError as e:
+            logging.critical(msg="Could not start checking topology.", exc_info=e)
             raise e
 
     def read_shared_variable(self):

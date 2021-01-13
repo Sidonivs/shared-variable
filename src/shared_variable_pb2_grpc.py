@@ -40,6 +40,11 @@ class SharedVariableStub(object):
                 request_serializer=shared__variable__pb2.TopologyRepairCompleteMsg.SerializeToString,
                 response_deserializer=shared__variable__pb2.Ack.FromString,
                 )
+        self.CheckNodes = channel.unary_unary(
+                '/SharedVariable/CheckNodes',
+                request_serializer=shared__variable__pb2.CheckNodesMsg.SerializeToString,
+                response_deserializer=shared__variable__pb2.Ack.FromString,
+                )
         self.Election = channel.unary_unary(
                 '/SharedVariable/Election',
                 request_serializer=shared__variable__pb2.ElectionMsg.SerializeToString,
@@ -93,6 +98,12 @@ class SharedVariableServicer(object):
     def TopologyRepairComplete(self, request, context):
         """signal that the topology repair has been completed 
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CheckNodes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -153,6 +164,11 @@ def add_SharedVariableServicer_to_server(servicer, server):
             'TopologyRepairComplete': grpc.unary_unary_rpc_method_handler(
                     servicer.TopologyRepairComplete,
                     request_deserializer=shared__variable__pb2.TopologyRepairCompleteMsg.FromString,
+                    response_serializer=shared__variable__pb2.Ack.SerializeToString,
+            ),
+            'CheckNodes': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckNodes,
+                    request_deserializer=shared__variable__pb2.CheckNodesMsg.FromString,
                     response_serializer=shared__variable__pb2.Ack.SerializeToString,
             ),
             'Election': grpc.unary_unary_rpc_method_handler(
@@ -267,6 +283,23 @@ class SharedVariable(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/SharedVariable/TopologyRepairComplete',
             shared__variable__pb2.TopologyRepairCompleteMsg.SerializeToString,
+            shared__variable__pb2.Ack.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CheckNodes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/SharedVariable/CheckNodes',
+            shared__variable__pb2.CheckNodesMsg.SerializeToString,
             shared__variable__pb2.Ack.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

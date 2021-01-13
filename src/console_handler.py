@@ -1,5 +1,6 @@
 import threading
 import grpc
+import time
 
 
 class ConsoleHandler(threading.Thread):
@@ -20,12 +21,23 @@ class ConsoleHandler(threading.Thread):
         if cmd == "?" or cmd == "help":
             print("? or help - this help")
             print("s - print node status")
+            print("c - check topology and repair it if needed")
             print("r - read shared variable")
             print("w - write to shared variable")
             print("q - nicely ask this node to die and let it say goodbye to it's friends")
             print("k - violently murder this node, other nodes will hate you!")
         elif cmd == "s":
             self.node.print_status()
+        elif cmd == "c":
+            print("Checking topology...")
+            try:
+                self.node.check_topology()
+            except grpc.RpcError as e:
+                print("Unable to start checking topology due to an unexpected error. You may try again later or "
+                      "restart.")
+            # to prevent checking again too fast
+            time.sleep(3)
+
         elif cmd == "q":
             try:
                 self.node.leave()
