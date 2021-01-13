@@ -9,6 +9,7 @@ service SharedVariable {
     rpc NodeMissing(NodeMissingMsg) returns (Ack) {}
     /* signal that the topology repair has been completed */
     rpc TopologyRepairComplete(TopologyRepairCompleteMsg) returns (Ack) {}
+    rpc CheckNodes() returns (Ack) {}
 
     /* Leader election */
 
@@ -63,6 +64,11 @@ message NodeMissingMsg {
 }
 
 message TopologyRepairCompleteMsg {
+    Address author = 1;
+}
+
+message CheckNodesMsg {
+    Address author = 1;
 }
 
 message ElectionMsg {

@@ -64,8 +64,7 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
             # otherwise infinitely rotating NodeMissing messages could freeze the entire cluster
             logging.warning("Missing node could not be found, it might have already been removed. "
                             "This can indicate an unsuccessful leader election. "
-                            "The NodeMissing message will be thrown away.")
-            self.node.repairing = False
+                            "The NodeMissing message will be thrown away and a new leader eventually elected.")
             self.node.node_missing_author = False
             return sv.Ack(ack=True)
 
@@ -77,17 +76,32 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
             # send ChangeNNext to prev node with my new next
             self.node.hub.get_prev().ChangeNNext(sv.ChangeNNextMsg(nnext=self.node.next))
             print("NodeMissing completed.")
-            # TODO send signal that repair is completed
+
+            self.node.hub.get_next().TopologyRepairComplete(sv.TopologyRepairCompleteMsg(author=self.node.address))
+
+            if self.node.address == self.node.leader:
+                # my backup just died, make a new one
+                self.node.backup_variable()
 
         else:
             # send to next node to solve
             self.node.hub.get_next().NodeMissing(sv.NodeMissingMsg(address=request.address))
 
+        return sv.Ack(ack=True)
+
+    def TopologyRepairComplete(self, request, context):
+        print(f"TopologyRepairComplete called with author [{util.address_to_string(request.author)}].")
         self.node.repairing = False
+
+        if self.node.address != request.author:
+            self.node.hub.get_next().TopologyRepairComplete(sv.TopologyRepairCompleteMsg(author=request.author))
+
         return sv.Ack(ack=True)
 
     def Election(self, request, context):
         print(f"Election called with timestamp [{request.timestamp}]")
+
+        self.node.wait_for_repair()
 
         if self.node.timestamp < request.timestamp:
             self.node.voting = True
@@ -167,9 +181,5 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         print(f"Old value: '{self.node.variable}'; New value: '{request.variable}'")
 
         self.node.variable = request.variable
-
-        if self.node.address == self.node.leader:
-            # make a backup of the new value in the next node
-            self.node.backup_variable()
 
         return sv.WriteVarReply(timestamp=timestamp)

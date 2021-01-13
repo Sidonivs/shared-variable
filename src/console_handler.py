@@ -10,7 +10,7 @@ class ConsoleHandler(threading.Thread):
 
     def run(self):
         cmd = ""
-        while cmd != "q":
+        while cmd != "q" or cmd != "k":
             cmd = input("\ncmd > ")
             self.parse_cmd(cmd)
 
@@ -35,12 +35,12 @@ class ConsoleHandler(threading.Thread):
                                   f"under the endless night. \n"
                                   f"- T. Pratchett")
             except grpc.RpcError as e:
-                print("Unable to leave safely, you can try again later "
-                      "or use the command 'k' to kill this node anyway.")
+                print("Unable to leave safely!")
+                self.node.stop(1)
             except TimeoutError as e2:
                 print(e2)
-                print("Unable to leave safely, you can try again later "
-                      "or use the command 'k' to kill this node anyway.")
+                print("Unable to leave safely!")
+                self.node.stop(1)
 
         elif cmd == "k":
             self.node.kill()
@@ -74,3 +74,4 @@ class ConsoleHandler(threading.Thread):
 
         else:
             print("Unrecognized command.")
+            print("Type '?' or 'help' for help.")
