@@ -73,6 +73,8 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
             self.node.hub.get_prev().ChangeNNext(sv.ChangeNNextMsg(nnext=self.node.next))
             print("NodeMissing completed.")
 
+            self.node.repairing = False
+
             if self.node.address == self.node.leader:
                 # my backup just died, make a new one
                 self.node.backup_variable()
