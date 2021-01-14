@@ -16,74 +16,100 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         print("Join called.")
         reply = sv.JoinReply()
 
-        self.node.wait_for_repair()
-        self.node.repairing = True
+        with self.node.repairing_cv:
 
-        if request.address == self.node.address:
-            print("I am FIRST.")
-            reply.next.CopyFrom(self.node.next)
-            reply.prev.CopyFrom(self.node.prev)
-            reply.nnext.CopyFrom(self.node.nnext)
-            reply.leader.CopyFrom(self.node.leader)
+            self.node.repairing_cv.wait_for(lambda: not self.node.repairing)
 
-        else:
-            print(f"{util.address_to_string(request.address)} is joining.")
+            self.node.repairing = True
 
-            # work around for only 2 nodes
-            initial_next = sv.Address(hostname=self.node.next.hostname, port=self.node.next.port)
-            initial_prev = sv.Address(hostname=self.node.prev.hostname, port=self.node.prev.port)
+            if request.address == self.node.address:
+                print("I am FIRST.")
+                reply.next.CopyFrom(self.node.next)
+                reply.prev.CopyFrom(self.node.prev)
+                reply.nnext.CopyFrom(self.node.nnext)
+                reply.leader.CopyFrom(self.node.leader)
 
-            reply.next.CopyFrom(self.node.next)
-            reply.prev.CopyFrom(self.node.address)
-            reply.nnext.CopyFrom(self.node.nnext)
-            reply.leader.CopyFrom(self.node.leader)
+            else:
+                print(f"{util.address_to_string(request.address)} is joining.")
 
-            # send ChangePrev to (old) next node with new node address
-            self.node.hub.get_next().ChangePrev(sv.ChangePrevMsg(prev=request.address))
-            # send ChangeNNext to (old) prev node with new node address
-            self.node.hub.get_stub_by_address(initial_prev).ChangeNNext(sv.ChangeNNextMsg(nnext=request.address))
-            reply.nnext.CopyFrom(self.node.nnext)
-            # edit my neighbours
-            self.node.nnext = initial_next
-            self.node.next = request.address
+                # work around for only 2 nodes
+                initial_next = sv.Address(hostname=self.node.next.hostname, port=self.node.next.port)
+                initial_prev = sv.Address(hostname=self.node.prev.hostname, port=self.node.prev.port)
 
-        self.node.repairing = False
+                reply.next.CopyFrom(self.node.next)
+                reply.prev.CopyFrom(self.node.address)
+                reply.nnext.CopyFrom(self.node.nnext)
+                reply.leader.CopyFrom(self.node.leader)
+
+                # send ChangePrev to (old) next node with new node address
+                self.node.hub.get_next().ChangePrev(sv.ChangePrevMsg(prev=request.address))
+                # send ChangeNNext to (old) prev node with new node address
+                self.node.hub.get_stub_by_address(initial_prev).ChangeNNext(sv.ChangeNNextMsg(nnext=request.address))
+                reply.nnext.CopyFrom(self.node.nnext)
+                # edit my neighbours
+                self.node.hub.remove_stub(self.node.nnext)
+                self.node.nnext = initial_next
+                self.node.hub.remove_stub(self.node.next)
+                self.node.next = request.address
+
+            self.node.repairing = False
+            self.node.repairing_cv.notify()
+
         return reply
 
     def ChangePrev(self, request, context):
         print("ChangePrev called.")
+        self.node.hub.remove_stub(self.node.prev)
         self.node.prev = request.prev
         return self.node.next
 
     def ChangeNNext(self, request, context):
         print("ChangeNNext called.")
+        self.node.hub.remove_stub(self.node.nnext)
         self.node.nnext = request.nnext
         return sv.Ack(ack=True)
 
     def NodeMissing(self, request, context):
         print(f"NodeMissing called with {util.address_to_string(request.address)}.")
+
+        self.node.repairing_cv.acquire()
+        self.node.repairing_cv.wait_for(lambda: not self.node.repairing)
+
         self.node.repairing = True
 
         if request.address == self.node.next:
+            self.node.hub.remove_stub(self.node.next)
             self.node.next = self.node.nnext
             # send ChangePrev to nnext node with my address
             # nnext sends its next node to set as my new nnext
+            self.node.hub.remove_stub(self.node.nnext)
             self.node.nnext = self.node.hub.get_nnext().ChangePrev(sv.ChangePrevMsg(prev=self.node.address))
             # send ChangeNNext to prev node with my new next
             self.node.hub.get_prev().ChangeNNext(sv.ChangeNNextMsg(nnext=self.node.next))
             print("NodeMissing completed.")
 
+            self.node.missing_address = None
             self.node.repairing = False
+            self.node.repairing_cv.notify()
+            self.node.repairing_cv.release()
 
             if self.node.address == self.node.leader:
                 # my backup just died, make a new one
                 self.node.backup_variable()
 
         else:
-            # send to next node to solve
-            self.node.hub.get_next().NodeMissing(sv.NodeMissingMsg(address=request.address))
+            if request.address == self.node.missing_address:
+                logging.warning(f"Missing address {request.address} not found.")
+            else:
+                self.node.missing_address = request.address
+                # send to next node to solve
+                self.node.hub.get_next().NodeMissing(sv.NodeMissingMsg(address=request.address))
 
-        self.node.repairing = False
+            self.node.missing_address = None
+            self.node.repairing = False
+            self.node.repairing_cv.notify()
+            self.node.repairing_cv.release()
+
         return sv.Ack(ack=True)
 
     def CheckNodes(self, request, context):
@@ -109,7 +135,6 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
 
     def Election(self, request, context):
         print(f"Election called with timestamp [{request.timestamp}]")
-
         self.node.wait_for_repair()
 
         if self.node.timestamp < request.timestamp:
@@ -153,6 +178,7 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         print(f"Elected called with leader [{util.address_to_string(request.leader)}] and timestamp [{request.timestamp}]")
         self.node.wait_for_repair()
 
+        self.node.hub.remove_stub(self.node.leader)
         self.node.leader = request.leader
         self.node.voting = False
 
@@ -172,25 +198,47 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         return sv.Ack(ack=True)
 
     def ReadVar(self, request, context):
-        if self.node.address != self.node.leader:
-            logging.critical("Trying to read from a node that is not the leader!")
-            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Trying to read from a node that is not the leader!")
-
-        timestamp = self.node.generate_timestamp()
-        self.node.timestamp = timestamp
-        print(f"[{timestamp}] Variable with value '{self.node.variable}' was read.")
-
         reply = sv.ReadVarReply()
-        reply.variable = self.node.variable
-        reply.timestamp = timestamp
+
+        with self.node.writing_cv:
+
+            self.node.writing_cv.wait_for(lambda: not self.node.writing)
+
+            self.node.writing = True
+
+            if self.node.address != self.node.leader:
+                logging.critical("Trying to read from a node that is not the leader!")
+                self.node.writing = False
+                self.node.writing_cv.notify()
+                context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Trying to read from a node that is not the leader!")
+
+            timestamp = self.node.generate_timestamp()
+            self.node.timestamp = timestamp
+            print(f"[{timestamp}] Variable with value '{self.node.variable}' was read.")
+
+            reply.variable = self.node.variable
+            reply.timestamp = timestamp
+
+            self.node.writing = False
+            self.node.writing_cv.notify()
+
         return reply
 
     def WriteVar(self, request, context):
-        timestamp = self.node.generate_timestamp()
-        self.node.timestamp = timestamp
-        print(f"[{timestamp}] Writing to variable.")
-        print(f"Old value: '{self.node.variable}'; New value: '{request.variable}'")
+        with self.node.writing_cv:
 
-        self.node.variable = request.variable
+            self.node.writing_cv.wait_for(lambda: not self.node.writing)
+
+            self.node.writing = True
+
+            timestamp = self.node.generate_timestamp()
+            self.node.timestamp = timestamp
+            print(f"[{timestamp}] Writing to variable.")
+            print(f"Old value: '{self.node.variable}'; New value: '{request.variable}'")
+
+            self.node.variable = request.variable
+
+            self.node.writing = False
+            self.node.writing_cv.notify()
 
         return sv.WriteVarReply(timestamp=timestamp)

@@ -72,8 +72,8 @@ class ConsoleHandler(threading.Thread):
         elif cmd == "w":
             value = input("Value: ")
             try:
-                self.node.write_to_shared_variable(value)
-                print(f"[{self.node.timestamp}] Write successful.")
+                timestamp = self.node.write_to_shared_variable(value)
+                print(f"[{timestamp}] Write successful.")
             except grpc.RpcError:
                 print("Unable to write to the variable due to an unexpected error. You may try again later or restart "
                       "the cluster.")

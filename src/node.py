@@ -4,6 +4,7 @@ import yaml
 import time
 import random
 from concurrent import futures
+import threading
 
 import grpc
 
@@ -36,9 +37,13 @@ class Node:
         self.variable = ""
         self.timestamp = None
 
+        self.repairing_cv = threading.Condition()
         self.repairing = False
+        self.writing_cv = threading.Condition()
+        self.writing = False
         self.voting = False
 
+        self.missing_address = None
         self.check_nodes_author = False
 
         self.server = None
@@ -104,33 +109,19 @@ class Node:
         self.cmd_handler = ConsoleHandler(self)
         self.cmd_handler.start()
 
-    """ Can raise TimeoutError
-    """
     def wait_for_repair(self):
-        counter = 0
-        while self.repairing:
-            if counter >= 10:
-                logging.critical(msg="Timeout: Topology repair unsuccessful.")
-                raise TimeoutError("Waiting for another repair timed out.")
-
-            print("Waiting for another repair...")
-            time.sleep(random.uniform(0, 1))
-            counter += 1
+        with self.repairing_cv:
+            self.repairing_cv.wait_for(lambda: not self.repairing)
 
     """ Can raise TimeoutError or grpc.RpcError
     """
     def repair_topology(self, missing_address):
-        self.wait_for_repair()
-
-        self.repairing = True
-
         try:
             my_servicer = self.hub.get_stub_by_address(self.address)
             my_servicer.NodeMissing(sv.NodeMissingMsg(address=missing_address))
         except grpc.RpcError as e:
             logging.critical(msg="Topology repair unsuccessful. (Another node disconnected.)", exc_info=e)
 
-        self.repairing = False
         print(f"Topology repaired. {self.neighbours_to_string()}")
 
         if missing_address == self.leader:
@@ -160,7 +151,7 @@ class Node:
         read_successful = False
         counter = 0
         while not read_successful:
-            if counter >= 10:
+            if counter >= 20:
                 raise TimeoutError("Reading shared variable timed out.")
 
             try:
@@ -190,7 +181,7 @@ class Node:
         write_successful = False
         counter = 0
         while not write_successful:
-            if counter >= 10:
+            if counter >= 20:
                 raise TimeoutError("Writing to shared variable timed out.")
 
             try:
@@ -205,6 +196,8 @@ class Node:
                     # make a backup of the new value in the next node
                     self.backup_variable()
 
+                return write_var_reply.timestamp
+
             except grpc.RpcError as e:
                 logging.warning(msg=f"Leader could not be reached: {e.code()}.")
 
@@ -217,23 +210,15 @@ class Node:
             # I am alone
             return
 
-        backup_send_success = False
-        while not backup_send_success:
-            try:
-                self.hub.get_next().WriteVar(sv.WriteVarReq(variable=self.variable))
-                backup_send_success = True
-            except grpc.RpcError as e:
-                logging.warning(f"Next node for backup could not be reached: {e.code()}.")
-                self.repair_topology(self.next)
+        try:
+            self.hub.get_next().WriteVar(sv.WriteVarReq(variable=self.variable))
+        except grpc.RpcError as e:
+            logging.warning(f"Backup failed: {e.code()}.")
 
     def leave(self):
         if self.address == self.prev:
             # I am the only node
             return
-
-        self.wait_for_repair()
-
-        self.repairing = True
 
         try:
             prev_node = self.hub.get_prev()
@@ -241,8 +226,6 @@ class Node:
         except grpc.RpcError as e:
             logging.error(msg="Failed to send leaving message.", exc_info=e)
             raise e
-
-        self.repairing = False
 
         if self.address == self.leader:
             try:
@@ -253,6 +236,7 @@ class Node:
                 print("Trying to rejoin cluster...")
                 try:
                     join_reply = self.hub.get_prev().Join(sv.JoinReq(address=self.address))
+                    self.hub.reset_stubs()
                     self.next = join_reply.next
                     self.prev = join_reply.prev
                     self.nnext = join_reply.nnext
