@@ -14,6 +14,8 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
 
     def Join(self, request, context):
         print("Join called.")
+        self.node.check_topology()
+
         reply = sv.JoinReply()
 
         with self.node.repairing_cv:

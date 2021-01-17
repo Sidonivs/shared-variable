@@ -2,7 +2,6 @@ import sys
 import logging
 import yaml
 import time
-import random
 from concurrent import futures
 import threading
 
@@ -15,8 +14,6 @@ from src import util
 from src.shared_variable_servicer_impl import SharedVariableServicer
 from src.communication_hub import CommunicationHub
 from src.console_handler import ConsoleHandler
-
-logging.basicConfig(level=logging.INFO)
 
 
 class Node:
@@ -270,7 +267,7 @@ def parse_args():
 
 
 def get_yaml_config(config_node_id):
-    with open("../node_config.yaml", 'r') as stream:
+    with open("../node_config_local.yaml", 'r') as stream:
         try:
             dictionary = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
@@ -284,6 +281,12 @@ def get_yaml_config(config_node_id):
 
 if __name__ == '__main__':
     config_node_id = parse_args()
+
+    logging.basicConfig(level=logging.INFO,
+                        format='%(relativeCreated)6d %(threadName)s %(message)s',
+                        filename=f'../logs/{config_node_id}.log',
+                        filemode='w')
+
     config = get_yaml_config(config_node_id)
     Node.this_node = Node(config)
     Node.this_node.run()

@@ -9,6 +9,8 @@ class ConsoleHandler(threading.Thread):
         self.node = node
 
     def run(self):
+        print("Welcome to shared variable distributed system. Type '?' to see possible commands.")
+
         cmd = ""
         while cmd != "q" or cmd != "k":
             cmd = input("\ncmd > ")
