@@ -267,7 +267,7 @@ def parse_args():
 
 
 def get_yaml_config(config_node_id):
-    with open("../node_config_local.yaml", 'r') as stream:
+    with open("../node_config.yaml", 'r') as stream:
         try:
             dictionary = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
