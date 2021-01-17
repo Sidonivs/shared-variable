@@ -106,10 +106,6 @@ class Node:
         self.cmd_handler = ConsoleHandler(self)
         self.cmd_handler.start()
 
-    def wait_for_repair(self):
-        with self.repairing_cv:
-            self.repairing_cv.wait_for(lambda: not self.repairing)
-
     """ Can raise TimeoutError or grpc.RpcError
     """
     def repair_topology(self, missing_address):
@@ -143,8 +139,6 @@ class Node:
             raise e
 
     def read_shared_variable(self):
-        self.wait_for_repair()
-
         read_successful = False
         counter = 0
         while not read_successful:
@@ -173,8 +167,6 @@ class Node:
             counter += 1
 
     def write_to_shared_variable(self, value):
-        self.wait_for_repair()
-
         write_successful = False
         counter = 0
         while not write_successful:
@@ -186,10 +178,16 @@ class Node:
                 write_var_reply = leader.WriteVar(sv.WriteVarReq(variable=value))
 
                 write_successful = True
-                self.variable = value
-                self.timestamp = write_var_reply.timestamp
+                if self.address != self.leader:
+                    with self.writing_cv:
+                        self.writing_cv.wait_for(lambda: not self.writing)
+                        self.writing = True
+                        self.variable = value
+                        self.timestamp = write_var_reply.timestamp
+                        self.writing = False
+                        self.writing_cv.notify()
 
-                if self.address == self.leader:
+                else:
                     # make a backup of the new value in the next node
                     self.backup_variable()
 
@@ -225,6 +223,9 @@ class Node:
             raise e
 
         if self.address == self.leader:
+            with self.writing_cv:
+                self.writing_cv.wait_for(lambda: not self.writing)
+
             try:
                 # start leader election on the next node
                 self.hub.get_next().Election(sv.ElectionMsg(timestamp=-1))

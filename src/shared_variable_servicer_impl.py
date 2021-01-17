@@ -122,8 +122,6 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
             print("CheckNodes completed.")
             return sv.Ack(ack=True)
 
-        self.node.wait_for_repair()
-
         check_nodes_success = False
         while not check_nodes_success:
             try:
@@ -137,7 +135,6 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
 
     def Election(self, request, context):
         print(f"Election called with timestamp [{request.timestamp}]")
-        self.node.wait_for_repair()
 
         if self.node.timestamp < request.timestamp:
             self.node.voting = True
@@ -178,7 +175,6 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
 
     def Elected(self, request, context):
         print(f"Elected called with leader [{util.address_to_string(request.leader)}] and timestamp [{request.timestamp}]")
-        self.node.wait_for_repair()
 
         self.node.hub.remove_stub(self.node.leader)
         self.node.leader = request.leader
@@ -203,26 +199,18 @@ class SharedVariableServicer(sv_grpc.SharedVariableServicer):
         reply = sv.ReadVarReply()
 
         with self.node.writing_cv:
-
             self.node.writing_cv.wait_for(lambda: not self.node.writing)
 
-            self.node.writing = True
+        if self.node.address != self.node.leader:
+            logging.critical("Trying to read from a node that is not the leader!")
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Trying to read from a node that is not the leader!")
 
-            if self.node.address != self.node.leader:
-                logging.critical("Trying to read from a node that is not the leader!")
-                self.node.writing = False
-                self.node.writing_cv.notify()
-                context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Trying to read from a node that is not the leader!")
+        timestamp = self.node.generate_timestamp()
+        self.node.timestamp = timestamp
+        print(f"[{timestamp}] Variable with value '{self.node.variable}' was read.")
 
-            timestamp = self.node.generate_timestamp()
-            self.node.timestamp = timestamp
-            print(f"[{timestamp}] Variable with value '{self.node.variable}' was read.")
-
-            reply.variable = self.node.variable
-            reply.timestamp = timestamp
-
-            self.node.writing = False
-            self.node.writing_cv.notify()
+        reply.variable = self.node.variable
+        reply.timestamp = timestamp
 
         return reply
 
